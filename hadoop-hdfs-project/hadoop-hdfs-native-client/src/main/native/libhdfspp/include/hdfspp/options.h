@@ -20,12 +20,74 @@
 
 #include "hdfspp/uri.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <map>
 
 namespace hdfs {
 
+class Token {
+public:
+    Token() {}
+
+    Token (const Token &other) {
+        setIdentifier(other.getIdentifier());
+        setPassword(other.getPassword());
+        setService(other.getService());
+        setKind(other.getKind());
+    }
+
+    Token& operator= (const Token &other) {
+        setIdentifier(other.getIdentifier());
+        setPassword(other.getPassword());
+        setService(other.getService());
+        setKind(other.getKind());
+        return *this;
+    }
+
+    const std::string & getIdentifier() const {
+        return identifier;
+    }
+
+    void setIdentifier(const std::string & identifier_) {
+        this->identifier = identifier_;
+    }
+
+    const std::string & getKind() const {
+        return kind;
+    }
+
+    void setKind(const std::string & kind_) {
+        this->kind = kind_;
+    }
+
+    const std::string & getPassword() const {
+        return password;
+    }
+
+    void setPassword(const std::string & password_) {
+        this->password = password_;
+    }
+
+    const std::string & getService() const {
+        return service;
+    }
+
+    void setService(const std::string & service_) {
+        this->service = service_;
+    }
+
+    bool hasValue() const {
+        return !identifier.empty();
+    }
+
+private:
+    std::string identifier;
+    std::string password;
+    std::string kind;
+    std::string service;
+};
 
 struct NamenodeInfo {
   NamenodeInfo(const std::string &nameservice_, const std::string &nodename_, const URI &uri_) :
@@ -129,6 +191,34 @@ struct Options {
    **/
   int io_threads_;
   static const int kDefaultIoThreads = -1;
+
+  std::map<std::pair<std::string, std::string>, Token> tokens_;
+  void addTokens(const Options &other) {
+      const std::map<std::pair<std::string, std::string>, Token> tokens = other.getTokens();
+      for (auto token : tokens)
+      {
+          this->addToken(token.second);
+      }
+  }
+
+  void addToken(const Token &token) {
+      std::string kind;
+      std::string service;
+      kind.resize(token.getKind().size());
+      service.resize(token.getService().size());
+      std::transform(token.getKind().begin(), token.getKind().end(), kind.begin(), tolower);
+      std::transform(token.getService().begin(), token.getService().end(), service.begin(), tolower);
+
+      if (kind != "hdfs_delegation_token") {
+          return;
+      }
+
+      tokens_[std::make_pair(service, kind)] = token;
+  }
+
+  const std::map<std::pair<std::string, std::string>, Token> & getTokens() const {
+      return tokens_;
+  }
 
   Options();
 };
